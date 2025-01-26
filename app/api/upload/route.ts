@@ -5,13 +5,8 @@ import { ProductService } from "@/lib/services/product.service";
 import { generateImageDescription } from "@/lib/services/openai.service";
 import { ObjectId } from "mongodb";
 
-// New route segment config
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5 minutes
-export const bodyParser = {
-  sizeLimit: '20mb'
-};
 
 // Configure the route to handle raw body
 export const POST = withAuth(async (req: NextRequest, { userId }) => {

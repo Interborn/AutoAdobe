@@ -14,8 +14,19 @@ export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   session: {
     strategy: "jwt",
-    maxAge: 2 * 60, // 2 minutes
-    updateAge: 60, // Update session every minute
+    maxAge: 24 * 60 * 60,
+    updateAge: 30 * 60,
+  },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
   },
   pages: {
     signIn: "/signin",

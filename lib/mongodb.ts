@@ -68,12 +68,6 @@ export async function initializeCollections() {
     await db.createCollection('products');
     await db.collection('products').createIndex({ userId: 1 });
     await db.collection('products').createIndex({ batchId: 1 });
-    await db.collection('products').createIndex({ status: 1 });
-    await db.collection('products').createIndex({ stage: 1 });
     await db.collection('products').createIndex({ createdAt: -1 });
-    await db.collection('products').createIndex(
-      { userId: 1, stage: 1, status: 1 },
-      { name: 'products_workflow_index' }
-    );
   }
 }

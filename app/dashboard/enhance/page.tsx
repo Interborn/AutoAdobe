@@ -14,8 +14,8 @@ export default async function EnhancePage() {
   if (!session?.user) return null;
 
   const products = await ProductService.findByUserId(session.user.id, {
-    stage: "enhance",
     limit: 100,
+    page: 1
   });
 
   return (
@@ -107,7 +107,6 @@ export default async function EnhancePage() {
         <Suspense fallback={<div>Loading products...</div>}>
           <ProductGrid
             products={products.items}
-            stage="enhance"
             onSelect={(id) => {}}
             selectedIds={[]}
             onAction={(product) => {}}

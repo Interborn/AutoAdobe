@@ -13,8 +13,8 @@ export default async function PromptsPage() {
   if (!session?.user) return null;
 
   const { items: initialProducts, ...pagination } = await ProductService.findByUserId(session.user.id, {
-    stage: "prompts",
     limit: 100,
+    page: 1
   });
 
   return (
@@ -28,9 +28,14 @@ export default async function PromptsPage() {
       <Separator />
       
       <Suspense fallback={<div>Loading...</div>}>
-        <PromptsClient
-          initialProducts={initialProducts}
-          pagination={pagination}
+        <PromptsClient 
+          initialProducts={initialProducts} 
+          pagination={{
+            total: pagination.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: pagination.totalPages
+          }}
         />
       </Suspense>
     </div>

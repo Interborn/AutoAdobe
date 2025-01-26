@@ -22,7 +22,6 @@ export default async function MetadataPage() {
   if (!session?.user) return null;
 
   const products = await ProductService.findByUserId(session.user.id, {
-    stage: "metadata",
     limit: 100,
   });
 
@@ -172,11 +171,9 @@ export default async function MetadataPage() {
         <Suspense fallback={<div>Loading products...</div>}>
           <ProductGrid
             products={products.items}
-            stage="metadata"
-            onSelect={(id) => {}}
-            selectedIds={[]}
-            onAction={(product) => {}}
-            actionLabel="Edit Metadata"
+            isLoading={false}
+            hasMore={false}
+            processingCount={0}
           />
         </Suspense>
       </div>

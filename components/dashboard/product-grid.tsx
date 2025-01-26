@@ -19,6 +19,10 @@ interface ProductGridProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   processingCount?: number;
+  onSelect?: (id: string) => void;
+  selectedIds?: string[];
+  onAction?: (product: Product) => void;
+  actionLabel?: string;
 }
 
 function ProductSkeleton() {
@@ -54,6 +58,10 @@ export function ProductGrid({
   hasMore = false,
   onLoadMore,
   processingCount = 0,
+  onSelect,
+  selectedIds = [],
+  onAction,
+  actionLabel,
 }: ProductGridProps) {
   const getDisplayAsset = (product: Product) => {
     if (product.originalImages?.[0]) {
@@ -96,11 +104,17 @@ export function ProductGrid({
         {/* Actual Products */}
         {products.map(product => {
           const assetUrl = getDisplayAsset(product);
+          const isSelected = selectedIds.includes(product._id.toString());
 
           return (
             <Card 
               key={product._id.toString()} 
-              className="group relative overflow-hidden transition-all duration-200 hover:shadow-lg h-[32rem] flex flex-col"
+              className={cn(
+                "group relative overflow-hidden transition-all duration-200 hover:shadow-lg h-[32rem] flex flex-col",
+                isSelected && "ring-2 ring-primary",
+                onSelect && "cursor-pointer"
+              )}
+              onClick={() => onSelect?.(product._id.toString())}
             >
               <CardHeader className="p-0 flex-none">
                 <div className="relative bg-muted">

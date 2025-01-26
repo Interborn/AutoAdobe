@@ -50,7 +50,7 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
 
   const refreshData = async () => {
     try {
-      const response = await fetch(`/api/products?stage=prompts&page=1&limit=${pagination.limit}`);
+      const response = await fetch(`/api/products?page=1&limit=${pagination.limit}`);
       if (!response.ok) throw new Error('Failed to refresh data');
       const data = await response.json();
       setProducts(data.items);
@@ -84,7 +84,7 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
     setIsLoading(true);
     try {
       const nextPage = page + 1;
-      const response = await fetch(`/api/products?stage=prompts&page=${nextPage}&limit=12`);
+      const response = await fetch(`/api/products?page=${nextPage}&limit=12`);
       
       if (!response.ok) {
         throw new Error("Failed to load more products");

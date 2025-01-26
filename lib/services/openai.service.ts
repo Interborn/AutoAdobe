@@ -10,8 +10,8 @@ if (!process.env.OPENAI_ORG_ID) {
 
 // Initialize OpenAI client with API key and organization
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY.trim(), // Trim to remove any whitespace
-  organization: process.env.OPENAI_ORG_ID.trim(),
+  apiKey: process.env.OPENAI_API_KEY!.trim(), // Trim to remove any whitespace
+  organization: process.env.OPENAI_ORG_ID!.trim(),
 });
 
 type TextContent = {
@@ -32,7 +32,7 @@ type MessageContent = TextContent | ImageUrlContent;
 export async function generateImageDescription(base64Image: string): Promise<string> {
   try {
     // Verify API key format
-    const apiKey = process.env.OPENAI_API_KEY.trim();
+    const apiKey = process.env.OPENAI_API_KEY!.trim();
     if (!apiKey.startsWith('sk-') || apiKey.length < 40) {
       throw new Error('Invalid API key format. Key should start with "sk-" and be at least 40 characters long.');
     }

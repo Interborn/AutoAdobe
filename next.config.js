@@ -3,6 +3,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    esmExternals: 'loose'
+  },
   images: {
     unoptimized: true,
     remotePatterns: [

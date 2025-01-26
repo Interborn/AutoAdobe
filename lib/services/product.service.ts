@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { ObjectId, Document } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { Product, CreateProduct, Asset } from "@/models/Product";
 import { CounterService } from "@/lib/services/counter.service";
@@ -23,21 +23,8 @@ export class ProductService {
         ...img,
         createdAt: img.createdAt.toISOString()
       })),
-      generatedImages: product.generatedImages?.map(img => ({
-        ...img,
-        createdAt: img.createdAt.toISOString()
-      })),
-      enhancedImages: product.enhancedImages?.map(img => ({
-        ...img,
-        createdAt: img.createdAt.toISOString()
-      })),
       createdAt: product.createdAt.toISOString(),
       updatedAt: product.updatedAt.toISOString(),
-      completedAt: product.completedAt?.toISOString(),
-      processingErrors: product.processingErrors?.map(err => ({
-        ...err,
-        timestamp: err.timestamp.toISOString()
-      }))
     };
   }
 
@@ -75,7 +62,7 @@ export class ProductService {
     await db.collection("users").updateOne(
       { _id: new ObjectId(data.userId.toString()) },
       { 
-        $push: { products: result.insertedId },
+        $push: { "products": result.insertedId } as any,
         $set: { updatedAt: now }
       }
     );
@@ -87,14 +74,12 @@ export class ProductService {
     const db = await getDb();
     const product = await db
       .collection(this.collection)
-      .findOne({ _id: new ObjectId(id) }) as Product | null;
+      .findOne({ _id: new ObjectId(id) }) as unknown as Product | null;
     
     return product ? this.serializeProduct(product) : null;
   }
 
   static async findByUserId(userId: string, options?: {
-    stage?: Product["stage"];
-    status?: Product["status"];
     batchId?: string;
     limit?: number;
     page?: number;
@@ -102,8 +87,6 @@ export class ProductService {
     const db = await getDb();
     const query: any = { userId: new ObjectId(userId) };
     
-    if (options?.stage) query.stage = options.stage;
-    if (options?.status) query.status = options.status;
     if (options?.batchId) query.batchId = options.batchId;
 
     const page = options?.page || 1;
@@ -143,21 +126,9 @@ export class ProductService {
           },
         },
         { returnDocument: "after" }
-      );
+      ) as unknown as Product | null;
 
     return result ? this.serializeProduct(result) : null;
-  }
-
-  static async updateStage(id: string, stage: Product["stage"]): Promise<any | null> {
-    return this.update(id, { stage });
-  }
-
-  static async updateStatus(id: string, status: Product["status"]): Promise<any | null> {
-    const updates: Partial<Product> = { status };
-    if (status === "completed") {
-      updates.completedAt = new Date();
-    }
-    return this.update(id, updates);
   }
 
   static async addAsset(
@@ -171,24 +142,17 @@ export class ProductService {
       .findOneAndUpdate(
         { _id: new ObjectId(id) },
         {
-          $push: {
-            assets: {
-              ...asset,
-              type,
-              createdAt: new Date(),
-            },
-          },
+          $push: { "assets": { ...asset, type, createdAt: new Date() } } as any,
           $set: { updatedAt: new Date() },
         },
         { returnDocument: "after" }
-      );
+      ) as unknown as Product | null;
 
     return result ? this.serializeProduct(result) : null;
   }
 
   static async addProcessingError(
     id: string,
-    stage: string,
     error: string
   ): Promise<any | null> {
     const db = await getDb();
@@ -197,20 +161,13 @@ export class ProductService {
       .findOneAndUpdate(
         { _id: new ObjectId(id) },
         {
-          $push: {
-            processingErrors: {
-              stage,
-              error,
-              timestamp: new Date(),
-            },
-          },
+          $push: { "processingErrors": { error, timestamp: new Date() } } as any,
           $set: {
-            status: "failed",
             updatedAt: new Date(),
           },
         },
         { returnDocument: "after" }
-      );
+      ) as unknown as Product | null;
 
     return result ? this.serializeProduct(result) : null;
   }
@@ -232,7 +189,7 @@ export class ProductService {
       await db.collection("users").updateOne(
         { _id: product.userId },
         { 
-          $pull: { products: new ObjectId(id) },
+          $pull: { "products": new ObjectId(id) } as any,
           $set: { updatedAt: new Date() }
         }
       );
@@ -251,7 +208,7 @@ export class ProductService {
     const products = await db
       .collection(this.collection)
       .find({ _id: { $in: objectIds } })
-      .toArray() as Product[];
+      .toArray() as unknown as Product[];
 
     return products.map(this.serializeProduct);
   }

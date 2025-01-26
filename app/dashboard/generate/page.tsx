@@ -32,12 +32,12 @@ export default async function GeneratePage() {
     exists: !!user,
     hasProducts: !!user?.products,
     productCount: user?.products?.length,
-    productIds: user?.products?.map(id => id.toString())
+    productIds: user?.products?.map((id: ObjectId) => id.toString())
   });
 
   // Fetch all products referenced in user.products
   const products = user?.products 
-    ? await ProductService.findByIds(user.products.map(id => id.toString()))
+    ? await ProductService.findByIds(user.products.map((id: ObjectId) => id.toString()))
     : [];
 
   console.log("Products data:", {

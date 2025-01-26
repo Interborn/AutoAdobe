@@ -120,9 +120,8 @@ export function PromptsForm({
         updateFileStatus(file, { progress: 10 });
         const formData = new FormData();
         formData.append('files', file);
-        formData.append('stage', 'prompts');
-        formData.append('batchName', sessionBatchName);
-        formData.append('batchId', batchId);
+        formData.append('batchName', sessionBatchName || '');
+        formData.append('batchId', batchId || '');
         
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
@@ -258,111 +257,62 @@ export function PromptsForm({
               disabled={processingFiles.length > 0}
             />
           </div>
+        </div>
 
-          {/* Processing Status */}
-          {processingFiles.length > 0 && (
-            <div className="bg-muted/50 rounded-lg p-3">
+        {processingFiles.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Processing files...</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                onClick={() => setShowDetails(!showDetails)}
+              >
+                {showDetails ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {showDetails && (
               <div className="space-y-2">
-                {/* Summary Stats */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-sm font-medium">Upload Progress</h3>
-                    <div className="flex items-center gap-2 text-xs">
-                      {(() => {
-                        const { uploading, processing, completed, failed } = getFilesByStatus();
-                        return (
-                          <>
-                            {uploading.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
-                                <span className="text-muted-foreground">{uploading.length}</span>
-                              </span>
-                            )}
-                            {processing.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                <span className="text-muted-foreground">{processing.length}</span>
-                              </span>
-                            )}
-                            {completed.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-                                <span className="text-muted-foreground">{completed.length}</span>
-                              </span>
-                            )}
-                            {failed.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
-                                <span className="text-muted-foreground">{failed.length}</span>
-                              </span>
-                            )}
-                          </>
-                        );
-                      })()}
+                {processingFiles.map((pf, index) => (
+                  <div 
+                    key={index} 
+                    className={cn(
+                      "text-sm flex items-center justify-between gap-4 transition-all duration-300",
+                      pf.status === 'completed' && fadeToBackground
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="truncate">{pf.file.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {pf.status === 'uploading' && 'Uploading...'}
+                          {pf.status === 'processing' && 'Processing...'}
+                          {pf.status === 'completed' && 'Completed'}
+                          {pf.status === 'failed' && 'Failed'}
+                        </span>
+                      </div>
+                      <div className="w-full">
+                        {renderProgressBar(pf.progress, 100, pf.status)}
+                      </div>
+                      {pf.error && (
+                        <p className="text-xs text-destructive mt-1">{pf.error}</p>
+                      )}
                     </div>
                   </div>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2"
-                    onClick={() => setShowDetails(!showDetails)}
-                  >
-                    {showDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </Button>
-                </div>
-
-                {/* Overall Progress */}
-                {renderProgressBar(
-                  processingFiles.filter(pf => pf.status === 'completed').length,
-                  processingFiles.length,
-                  'uploading'
-                )}
-
-                {/* Detailed Status */}
-                {showDetails && (
-                  <div className="mt-3 space-y-2">
-                    {processingFiles.map((pf) => (
-                      <div
-                        key={pf.file.name}
-                        className={cn(
-                          "text-xs flex items-center gap-2",
-                          pf.status === 'completed' && fadeToBackground
-                        )}
-                      >
-                        <div className="flex-1 truncate">
-                          {pf.file.name}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {pf.status === 'uploading' && (
-                            <Loader2 size={12} className="animate-spin" />
-                          )}
-                          {pf.status === 'processing' && (
-                            <Loader2 size={12} className="animate-spin text-blue-500" />
-                          )}
-                          {pf.status === 'completed' && (
-                            <span className="text-green-500">✓</span>
-                          )}
-                          {pf.status === 'failed' && (
-                            <span className="text-red-500">✗</span>
-                          )}
-                          <span className={cn(
-                            pf.status === 'completed' && "text-green-500",
-                            pf.status === 'failed' && "text-red-500"
-                          )}>
-                            {pf.status === 'failed' ? 'Failed' :
-                             pf.status === 'completed' ? 'Done' :
-                             `${pf.progress}%`}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

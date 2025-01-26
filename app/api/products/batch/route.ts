@@ -6,8 +6,6 @@ import { ProductService } from "@/lib/services/product.service";
 const batchUpdateSchema = z.object({
   batchId: z.string(),
   updates: z.object({
-    stage: z.enum(["prompts", "generate", "enhance", "metadata"]).optional(),
-    status: z.enum(["draft", "processing", "completed", "failed"]).optional(),
     imageConfig: z.object({
       aspectRatio: z.string(),
       artStyle: z.string(),

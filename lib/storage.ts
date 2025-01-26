@@ -2,10 +2,32 @@ import { Storage } from '@google-cloud/storage';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 
-const storage = new Storage({
-  projectId: 'autostock-442118',
-  keyFilename: join(process.cwd(), 'google-cloud-key.json'),
-});
+let storageConfig = {};
+
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.GOOGLE_SERVICE_KEY) {
+    throw new Error('Missing GOOGLE_SERVICE_KEY environment variable');
+  }
+  
+  const credential = JSON.parse(
+    Buffer.from(process.env.GOOGLE_SERVICE_KEY, 'base64').toString()
+  );
+
+  storageConfig = {
+    projectId: 'autostock-442118',
+    credentials: {
+      client_email: credential.client_email,
+      private_key: credential.private_key,
+    },
+  };
+} else {
+  storageConfig = {
+    projectId: 'autostock-442118',
+    keyFilename: join(process.cwd(), 'google-cloud-key.json'),
+  };
+}
+
+const storage = new Storage(storageConfig);
 
 const BUCKET_NAME = 'autostock_product_photos';
 const bucket = storage.bucket(BUCKET_NAME);

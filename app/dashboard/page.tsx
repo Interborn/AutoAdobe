@@ -47,7 +47,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-4">
-          <Link href="/dashboard/prompts">
+          <Link href="/dashboard/library">
             <Button className={cn(buttonVariants({ variant: "default" }))}>
               <ImagePlusIcon className="w-4 h-4 mr-2" />
               Upload Images
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Link href="/dashboard/prompts" className="block">
+            <Link href="/dashboard/library" className="block">
               <Button className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start")}>
                 <ImagePlusIcon className="w-4 h-4 mr-2" />
                 Upload New Images

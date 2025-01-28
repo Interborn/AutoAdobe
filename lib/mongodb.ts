@@ -56,11 +56,6 @@ export async function initializeCollections() {
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
   }
 
-  if (!collectionNames.includes('prompts')) {
-    await db.createCollection('prompts');
-    await db.collection('prompts').createIndex({ userId: 1 });
-  }
-
   if (!collectionNames.includes('generatedPhotos')) {
     await db.createCollection('generatedPhotos');
     await db.collection('generatedPhotos').createIndex({ userId: 1 });

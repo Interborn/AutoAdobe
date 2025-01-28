@@ -26,12 +26,6 @@ const routes = [
     color: "text-blue-500",
   },
   {
-    label: "Prompts",
-    icon: ImageIcon,
-    href: "/dashboard/prompts",
-    color: "text-violet-500",
-  },
-  {
     label: "Generate",
     icon: Wand2Icon,
     href: "/dashboard/generate",

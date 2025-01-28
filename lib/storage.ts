@@ -35,7 +35,7 @@ const bucket = storage.bucket(BUCKET_NAME);
 })();
 
 export class StorageService {
-  static async uploadFile(file: Buffer, originalName: string, folder: string = 'prompts'): Promise<string> {
+  static async uploadFile(file: Buffer, originalName: string, folder: string = 'library'): Promise<string> {
     console.log(`Starting upload for file: ${originalName} to folder: ${folder}`);
     
     const extension = originalName.split('.').pop();

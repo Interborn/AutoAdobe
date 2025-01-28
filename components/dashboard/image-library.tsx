@@ -72,7 +72,7 @@ export function ImageLibrary({ products, selectedIds, onSelect, onUpdate, onDele
           <div>
             <h3 className="font-medium">Image Library</h3>
             <p className="text-sm text-muted-foreground">
-              Select images to generate prompts
+              Select images to work with
             </p>
           </div>
           <div className="flex items-center gap-2">

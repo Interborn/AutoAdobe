@@ -2,6 +2,7 @@ import { ObjectId, Document } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { Product, CreateProduct, Asset } from "@/models/Product";
 import { CounterService } from "@/lib/services/counter.service";
+import { connectToDatabase } from "@/lib/mongodb";
 
 interface PaginatedResult<T> {
   items: T[];
@@ -9,6 +10,24 @@ interface PaginatedResult<T> {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+interface Activity {
+  type: 'prompt' | 'generate' | 'enhance';
+  description: string;
+  timestamp: string;
+}
+
+interface MonthlyStats {
+  totalPrompts: number;
+  imagesGenerated: number;
+  enhancements: number;
+  metadataFiles: number;
+  storageUsed: number;
+  storageLimit: number;
+  apiCalls: number;
+  apiLimit: number;
+  recentActivity: Activity[];
 }
 
 export class ProductService {
@@ -125,7 +144,23 @@ export class ProductService {
             updatedAt: new Date(),
           },
         },
-        { returnDocument: "after" }
+        { 
+          returnDocument: "after",
+          projection: {
+            _id: 1,
+            userId: 1,
+            productId: 1,
+            batchId: 1,
+            batchName: 1,
+            description: 1,
+            originalImages: 1,
+            imageConfig: 1,
+            enhancementOptions: 1,
+            metadata: 1,
+            createdAt: 1,
+            updatedAt: 1
+          }
+        }
       ) as unknown as Product | null;
 
     return result ? this.serializeProduct(result) : null;
@@ -212,4 +247,74 @@ export class ProductService {
 
     return products.map(this.serializeProduct);
   }
+
+  async getMonthlyStats(userEmail: string): Promise<MonthlyStats> {
+    // TODO: Implement actual stats gathering from database
+    // For now, return mock data
+    return {
+      totalPrompts: 25,
+      imagesGenerated: 12,
+      enhancements: 18,
+      metadataFiles: 8,
+      storageUsed: 1024 * 1024 * 500, // 500 MB
+      storageLimit: 1024 * 1024 * 1024 * 2, // 2 GB
+      apiCalls: 150,
+      apiLimit: 500,
+      recentActivity: [
+        {
+          type: 'prompt',
+          description: 'Created 5 new prompts',
+          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString() // 30 minutes ago
+        },
+        {
+          type: 'generate',
+          description: 'Generated 3 images',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString() // 1 hour ago
+        },
+        {
+          type: 'enhance',
+          description: 'Enhanced 2 images',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() // 2 hours ago
+        }
+      ]
+    };
+  }
+}
+
+export async function getProducts(userId: string): Promise<Product[]> {
+  const result = await ProductService.findByUserId(userId, { limit: 1000 });
+  return result.items;
+}
+
+export async function getProduct(productId: string): Promise<Product | null> {
+  const { db } = await connectToDatabase();
+  
+  const product = await db
+    .collection("products")
+    .findOne({
+      _id: new ObjectId(productId),
+    });
+
+  return product as Product;
+}
+
+export async function updateProduct(productId: string, update: Partial<Product>): Promise<void> {
+  const { db } = await connectToDatabase();
+  
+  await db
+    .collection("products")
+    .updateOne(
+      { _id: new ObjectId(productId) },
+      { $set: { ...update, updatedAt: new Date() } }
+    );
+}
+
+export async function deleteProduct(productId: string): Promise<void> {
+  const { db } = await connectToDatabase();
+  
+  await db
+    .collection("products")
+    .deleteOne({
+      _id: new ObjectId(productId),
+    });
 } 

@@ -9,6 +9,7 @@ import {
   FileTextIcon,
   ImagePlusIcon,
   LayoutDashboardIcon,
+  LibraryIcon,
 } from "lucide-react";
 
 const routes = [
@@ -17,6 +18,12 @@ const routes = [
     icon: LayoutDashboardIcon,
     href: "/dashboard",
     color: "text-sky-500",
+  },
+  {
+    label: "Library",
+    icon: LibraryIcon,
+    href: "/dashboard/library",
+    color: "text-blue-500",
   },
   {
     label: "Prompts",

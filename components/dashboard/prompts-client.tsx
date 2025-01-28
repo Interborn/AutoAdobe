@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/dashboard/product-grid";
 import { PromptsForm } from "@/components/dashboard/prompts-form";
@@ -21,35 +21,42 @@ interface PromptsClientProps {
   };
 }
 
+interface BatchState {
+  id: string | null;
+  name: string;
+  products: Product[];
+}
+
 export function PromptsClient({ initialProducts, pagination }: PromptsClientProps) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(pagination.total > initialProducts.length);
   const [processingCount, setProcessingCount] = useState(0);
   const [showBatchDialog, setShowBatchDialog] = useState(false);
-  const [currentBatch, setCurrentBatch] = useState<Product[]>([]);
-  const [sessionBatchId, setSessionBatchId] = useState<string | null>(null);
-  const [sessionBatchName, setSessionBatchName] = useState<string>("");
+  const [batch, setBatch] = useState<BatchState>({
+    id: null,
+    name: "",
+    products: []
+  });
 
-  // Reset batch ID when component mounts (i.e., when user returns to page)
+  // Reset batch when component mounts
   useEffect(() => {
-    setSessionBatchId(null);
-    setSessionBatchName("");
-    setCurrentBatch([]);
+    setBatch({ id: null, name: "", products: [] });
   }, []);
 
-  // Update current batch whenever products change
+  // Update batch products whenever products change
   useEffect(() => {
-    if (sessionBatchId) {
-      const batchProducts = products.filter(p => p.batchId === sessionBatchId);
-      setCurrentBatch(batchProducts);
+    if (batch.id) {
+      const batchProducts = products.filter(p => p.batchId === batch.id);
+      setBatch(prev => ({ ...prev, products: batchProducts }));
     }
-  }, [products, sessionBatchId]);
+  }, [products, batch.id]);
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     try {
+      setIsLoading(true);
       const response = await fetch(`/api/products?page=1&limit=${pagination.limit}`);
       if (!response.ok) throw new Error('Failed to refresh data');
       const data = await response.json();
@@ -58,33 +65,40 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
       setHasMore(data.items.length < data.total);
     } catch (error) {
       console.error('Failed to refresh data:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to refresh data"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [pagination.limit]);
 
-  const handleProductsCreated = async (newProduct: Product) => {
+  const handleProductsCreated = useCallback((newProduct: Product) => {
     setProducts(prev => [newProduct, ...prev]);
-  };
+  }, []);
 
-  const handleBatchComplete = () => {
-    if (currentBatch.length > 0) {
+  const handleBatchComplete = useCallback(() => {
+    if (batch.products.length > 0) {
       setShowBatchDialog(true);
     }
-  };
+  }, [batch.products.length]);
 
-  const handleProcessingCountChange = (count: number) => {
+  const handleProcessingCountChange = useCallback((count: number) => {
     setProcessingCount(count);
     if (count === 0 && processingCount > 0) {
       handleBatchComplete();
     }
-  };
+  }, [processingCount, handleBatchComplete]);
 
-  const handleLoadMore = async () => {
+  const handleLoadMore = useCallback(async () => {
     if (isLoading) return;
 
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       const nextPage = page + 1;
-      const response = await fetch(`/api/products?page=${nextPage}&limit=12`);
+      const response = await fetch(`/api/products?page=${nextPage}&limit=${pagination.limit}`);
       
       if (!response.ok) {
         throw new Error("Failed to load more products");
@@ -99,6 +113,7 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
 
       setProducts(prev => [...prev, ...data.items]);
       setPage(nextPage);
+      setHasMore(data.items.length === pagination.limit);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -108,26 +123,28 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoading, page, pagination.limit]);
 
-  const handleContinueToGenerate = () => {
+  const handleContinueToGenerate = useCallback(() => {
     setShowBatchDialog(false);
-    setSessionBatchId(null);
-    setSessionBatchName("");
-    setCurrentBatch([]);
+    setBatch({ id: null, name: "", products: [] });
     router.push('/dashboard/generate');
-  };
+  }, [router]);
 
-  const handleStayAndUpload = () => {
+  const handleStayAndUpload = useCallback(() => {
     setShowBatchDialog(false);
-  };
+  }, []);
 
-  const handleBatchNameChange = (name: string) => {
-    setSessionBatchName(name);
-  };
+  const handleBatchNameChange = useCallback((name: string) => {
+    setBatch(prev => ({ ...prev, name }));
+  }, []);
 
-  const handleEditBatch = () => {
-    if (sessionBatchId && currentBatch.length > 0) {
+  const handleBatchIdCreated = useCallback((id: string) => {
+    setBatch(prev => ({ ...prev, id }));
+  }, []);
+
+  const handleEditBatch = useCallback(() => {
+    if (batch.id && batch.products.length > 0) {
       setShowBatchDialog(true);
     } else {
       toast({
@@ -136,23 +153,23 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
         variant: "destructive",
       });
     }
-  };
+  }, [batch.id, batch.products.length]);
 
   return (
     <div className="space-y-6">
       <PromptsForm 
         onProductsCreated={handleProductsCreated} 
         onProcessingCountChange={handleProcessingCountChange}
-        sessionBatchId={sessionBatchId}
-        sessionBatchName={sessionBatchName}
+        sessionBatchId={batch.id}
+        sessionBatchName={batch.name}
         onBatchNameChange={handleBatchNameChange}
-        onBatchIdCreated={setSessionBatchId}
+        onBatchIdCreated={handleBatchIdCreated}
       />
 
       <BatchStatus
-        batchId={sessionBatchId}
-        batchName={sessionBatchName}
-        itemCount={currentBatch.length}
+        batchId={batch.id}
+        batchName={batch.name}
+        itemCount={batch.products.length}
         onEditBatch={handleEditBatch}
       />
 
@@ -169,7 +186,7 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
       <BatchEditDialog
         open={showBatchDialog}
         onOpenChange={setShowBatchDialog}
-        products={currentBatch}
+        products={batch.products}
         onContinue={handleContinueToGenerate}
         onStay={handleStayAndUpload}
       />

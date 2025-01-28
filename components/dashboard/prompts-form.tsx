@@ -38,6 +38,63 @@ const fadeToBackground = {
   '@keyframes fade-to-bg': fadeToBackgroundKeyframes,
 } as const;
 
+// Add new helper functions for better organization
+const createBatchId = async (batchName: string): Promise<string> => {
+  const response = await fetch('/api/batches/new', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ batchName })
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to generate batch ID');
+  }
+  
+  const data = await response.json();
+  return data.batchId;
+};
+
+const uploadFile = async (file: File, batchName: string, batchId: string) => {
+  const formData = new FormData();
+  formData.append('files', file);
+  formData.append('batchName', batchName);
+  formData.append('batchId', batchId);
+  
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to upload file');
+  }
+  
+  const data = await response.json();
+  if (!data.results?.[0]?.url) {
+    throw new Error('Invalid upload response');
+  }
+  
+  return data.results[0];
+};
+
+const updateProduct = async (productId: string, imageConfig: any) => {
+  const response = await fetch(`/api/products/${productId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ imageConfig }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to update product");
+  }
+
+  return response.json();
+};
+
 export function PromptsForm({ 
   onProductsCreated, 
   onProcessingCountChange,
@@ -68,127 +125,71 @@ export function PromptsForm({
   const handleUploadComplete = async (files: File[]) => {
     if (!files.length) return;
 
-    // Generate a new batch ID if one doesn't exist for the session
-    let batchId = sessionBatchId;
-    if (!batchId) {
-      try {
-        const response = await fetch('/api/batches/new', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ batchName: sessionBatchName })
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to generate batch ID');
-        }
-        
-        const data = await response.json();
-        batchId = data.batchId;
-        onBatchIdCreated(data.batchId);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to generate batch ID",
-        });
-        return;
+    try {
+      // Get or create batch ID
+      let batchId = sessionBatchId;
+      if (!batchId) {
+        batchId = await createBatchId(sessionBatchName);
+        onBatchIdCreated(batchId);
       }
-    }
 
-    if (!batchId) {
+      // Initialize processing state
+      setProcessingFiles(files.map(file => ({
+        file,
+        status: 'uploading',
+        progress: 0
+      })));
+
+      // Process files concurrently with better error handling
+      await Promise.all(files.map(async (file) => {
+        try {
+          // Upload file
+          updateFileStatus(file, { progress: 10 });
+          const uploadData = await uploadFile(file, sessionBatchName, batchId!);
+          updateFileStatus(file, { progress: 40 });
+
+          // Process and update product
+          updateFileStatus(file, { status: 'processing', progress: 50 });
+          const product = await updateProduct(uploadData.productId, {
+            base64Image: uploadData.base64Image,
+            originalImageUrl: uploadData.url,
+          });
+
+          // Handle success
+          updateFileStatus(file, { 
+            status: 'completed', 
+            progress: 100,
+            product 
+          });
+          
+          onProductsCreated(product);
+        } catch (error) {
+          console.error('Processing error:', error);
+          updateFileStatus(file, { 
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Failed to process file',
+            progress: 0
+          });
+          
+          toast({
+            variant: "destructive",
+            title: "Processing failed",
+            description: error instanceof Error ? error.message : 'Failed to process file',
+          });
+        }
+      }));
+
+      // Clear completed files after delay
+      setTimeout(() => {
+        setProcessingFiles(prev => prev.filter(pf => pf.status !== 'completed'));
+      }, 3000);
+    } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to get batch ID",
+        title: "Batch creation failed",
+        description: error instanceof Error ? error.message : 'Failed to create batch',
       });
-      return;
     }
-
-    // Initialize processing state for each file
-    setProcessingFiles(files.map(file => ({
-      file,
-      status: 'uploading',
-      progress: 0
-    })));
-
-    // Process all files concurrently
-    const processFile = async (file: File) => {
-      try {
-        // Step 1: Upload to cloud storage
-        updateFileStatus(file, { progress: 10 });
-        const formData = new FormData();
-        formData.append('files', file);
-        formData.append('batchName', sessionBatchName || '');
-        formData.append('batchId', batchId || '');
-        
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file');
-        }
-        
-        const uploadData = await uploadResponse.json();
-        console.log('Upload response:', uploadData);
-
-        if (!uploadData.results?.[0]?.url) {
-          throw new Error('Invalid upload response');
-        }
-
-        const { url: originalImageUrl, productId, description, base64Image } = uploadData.results[0];
-        
-        updateFileStatus(file, { progress: 40 });
-
-        // Step 2: Update the product with base64 data
-        updateFileStatus(file, { status: 'processing', progress: 50 });
-
-        // Step 3: Update the product with base64 data
-        const response = await fetch(`/api/products/${productId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            imageConfig: {
-              base64Image,
-              originalImageUrl,
-            }
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to update product");
-        }
-
-        const product = await response.json();
-        updateFileStatus(file, { 
-          status: 'completed', 
-          progress: 100,
-          product 
-        });
-        
-        onProductsCreated(product);
-      } catch (error) {
-        console.error('Processing error:', error);
-        updateFileStatus(file, { 
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Failed to process file',
-          progress: 0
-        });
-      }
-    };
-
-    // Process all files concurrently
-    await Promise.all(files.map(processFile));
-    
-    // Clear completed files after a delay
-    setTimeout(() => {
-      setProcessingFiles(prev => prev.filter(pf => pf.status !== 'completed'));
-    }, 3000);
   };
 
   const handleUploadError = (error: Error) => {

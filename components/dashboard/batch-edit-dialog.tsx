@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+"use client";
+
+import { useEffect, useState, useCallback, KeyboardEvent } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,38 +14,62 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { Loader2, Save, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Save, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, Edit2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface BatchEditDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  batchId: string;
+  batchName?: string;
   products: Product[];
-  onContinue: () => void;
-  onStay: () => void;
-  onProductsChanged?: () => void;
+  onUpdate: (updatedProduct: Product) => void;
 }
 
-export function BatchEditDialog({ 
-  open, 
-  onOpenChange, 
-  products, 
-  onContinue, 
-  onStay,
-  onProductsChanged 
-}: BatchEditDialogProps) {
-  const [batchName, setBatchName] = useState("");
+export function BatchEditDialog({ batchId, batchName, products, onUpdate }: BatchEditDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(batchName || "");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editedPrompts, setEditedPrompts] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showDeleteBatchAlert, setShowDeleteBatchAlert] = useState(false);
   const [deletingProducts, setDeletingProducts] = useState<Set<string>>(new Set());
+  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
 
-  const handleClose = () => {
-    onStay();
-    onOpenChange(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // Update all products in the batch
+      const updatedProducts = await Promise.all(
+        products.map((product) =>
+          fetch(`/api/products/${product._id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              batchName: name,
+            }),
+          }).then(res => res.json())
+        )
+      );
+
+      updatedProducts.forEach(product => {
+        if (product) {
+          onUpdate(product);
+        }
+      });
+
+      toast.success("Batch updated successfully");
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to update batch:", error);
+      toast.error("Failed to update batch");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Auto-select first product when dialog opens or when current selection is deleted
@@ -55,25 +81,25 @@ export function BatchEditDialog({
 
   // Initialize batch name from first product
   useEffect(() => {
-    if (products.length > 0 && !batchName) {
-      setBatchName(products[0].batchName || "");
+    if (products.length > 0 && !name) {
+      setName(products[0].batchName || "");
     }
   }, [products]);
 
   // Debounced auto-save
   useEffect(() => {
     const saveTimeout = setTimeout(async () => {
-      if (Object.keys(editedPrompts).length === 0 && !batchName) return;
+      if (Object.keys(editedPrompts).length === 0 && !name) return;
       
       setSaveStatus("saving");
       try {
         // Update batch name for all products if changed
-        if (batchName) {
+        if (name) {
           const results = await Promise.allSettled(products.map(product => 
             fetch(`/api/products/${product._id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ batchName })
+              body: JSON.stringify({ batchName: name })
             })
           ));
 
@@ -102,9 +128,6 @@ export function BatchEditDialog({
         }
 
         setSaveStatus("saved");
-        if (onProductsChanged) {
-          onProductsChanged();
-        }
       } catch (error) {
         console.error('Save error:', error);
         setSaveStatus("error");
@@ -117,7 +140,7 @@ export function BatchEditDialog({
     }, 1000);
 
     return () => clearTimeout(saveTimeout);
-  }, [batchName, editedPrompts, products, onProductsChanged]);
+  }, [name, editedPrompts, products]);
 
   const handlePromptChange = (productId: string, prompt: string) => {
     setEditedPrompts(prev => ({
@@ -149,10 +172,6 @@ export function BatchEditDialog({
         title: "Product deleted",
         description: "The product has been successfully deleted."
       });
-
-      if (onProductsChanged) {
-        onProductsChanged();
-      }
     } catch (error) {
       console.error('Delete error:', error);
       toast({
@@ -171,7 +190,7 @@ export function BatchEditDialog({
 
   const handleDeleteBatch = async () => {
     setShowDeleteBatchAlert(false);
-    setIsSubmitting(true);
+    setIsLoading(true);
 
     try {
       const results = await Promise.allSettled(products.map(product => 
@@ -192,10 +211,8 @@ export function BatchEditDialog({
         description: "All products in the batch have been deleted."
       });
 
-      if (onProductsChanged) {
-        onProductsChanged();
-      }
-      onOpenChange(false);
+      onUpdate(products[0]);
+      setOpen(false);
     } catch (error) {
       console.error('Batch delete error:', error);
       toast({
@@ -204,175 +221,230 @@ export function BatchEditDialog({
         description: error instanceof Error ? error.message : "Failed to delete some or all products. Please try again."
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!selectedProduct) return;
+
+    const currentIndex = products.findIndex(p => p._id === selectedProduct._id);
+    if (currentIndex === -1) return;
+
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : products.length - 1;
+      setSelectedProduct(products[prevIndex]);
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = currentIndex < products.length - 1 ? currentIndex + 1 : 0;
+      setSelectedProduct(products[nextIndex]);
+    }
+  }, [selectedProduct, products]);
+
+  const handleCopyPrompt = useCallback(() => {
+    if (!selectedProduct) return;
+    const prompt = editedPrompts[selectedProduct._id.toString()] || selectedProduct.description || "";
+    navigator.clipboard.writeText(prompt);
+    setCopiedPrompt(selectedProduct._id.toString());
+    setTimeout(() => setCopiedPrompt(null), 2000);
+  }, [selectedProduct, editedPrompts]);
+
   return (
     <>
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-5xl h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Batch</DialogTitle>
-            <DialogDescription>
-              Edit batch information and descriptions before continuing.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Tabs defaultValue="images" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="images" className="flex-1">Individual Images ({products.length})</TabsTrigger>
-              <TabsTrigger value="batch" className="flex-1">Batch Settings</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="batch" className="flex-1 space-y-4 p-4">
-              <div className="grid gap-6 max-w-2xl mx-auto">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="batchName">Batch Name</Label>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Edit2 className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-[85vw] h-[85vh] p-0">
+          <div className="flex h-full bg-background">
+            {/* Main Image View */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="px-6 h-14 border-b flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-lg font-semibold">Edit Batch</h2>
+                  <div className="flex items-center gap-3">
                     <Input
-                      id="batchName"
-                      value={batchName}
-                      onChange={(e) => setBatchName(e.target.value)}
-                      placeholder="Enter a name for this batch"
-                      className="w-full"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Enter batch name"
+                      className="h-9 w-[240px] text-sm"
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Batch Summary</Label>
-                    <div className="flex gap-2">
-                      <Badge variant="secondary">{products.length} images</Badge>
-                      {batchName && <Badge>{batchName}</Badge>}
-                    </div>
-                  </div>
-
-                  <div className="pt-4">
-                    <Button 
-                      variant="destructive" 
-                      onClick={() => setShowDeleteBatchAlert(true)}
-                      disabled={isSubmitting}
-                      className="w-full"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Entire Batch
-                    </Button>
+                    <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                      {products.length} {products.length === 1 ? 'image' : 'images'}
+                    </Badge>
                   </div>
                 </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="images" className="flex-1 flex flex-col min-h-0">
-              <div className="grid grid-cols-[250px,1fr] gap-6 flex-1 min-h-0 p-1">
-                <ScrollArea className="border rounded-lg">
-                  <div className="p-2 grid grid-cols-2 gap-2">
-                    {products.map(product => {
-                      const isDeleting = deletingProducts.has(product._id.toString());
-                      return (
-                        <Card
-                          key={product._id.toString()}
-                          className={cn(
-                            "cursor-pointer hover:bg-accent transition-colors overflow-hidden",
-                            selectedProduct?._id === product._id && "bg-accent ring-2 ring-primary",
-                            isDeleting && "opacity-50"
-                          )}
-                          onClick={() => !isDeleting && setSelectedProduct(product)}
-                        >
-                          <div className="relative aspect-square rounded-md overflow-hidden">
-                            <Image
-                              src={product.originalImages?.[0]?.url || ""}
-                              alt={product.description || ""}
-                              fill
-                              className="object-cover hover:scale-105 transition-transform"
-                            />
-                            {isDeleting && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-                                <Loader2 className="w-6 h-6 animate-spin" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-[10px] truncate p-1">
-                            {editedPrompts[product._id.toString()] || product.description || "No description yet"}
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-
-                <div className="space-y-4 min-h-0 flex flex-col">
-                  {selectedProduct ? (
-                    <>
-                      <div className="flex justify-between items-start">
-                        <div className="relative aspect-video rounded-lg overflow-hidden border flex-1">
-                          <Image
-                            src={selectedProduct.originalImages?.[0]?.url || ""}
-                            alt={selectedProduct.description || ""}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="ml-2"
-                          onClick={() => setShowDeleteAlert(true)}
-                          disabled={deletingProducts.has(selectedProduct._id.toString())}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="space-y-2 flex-1">
-                        <Label className="text-lg">Description</Label>
-                        <Textarea
-                          value={editedPrompts[selectedProduct._id.toString()] || selectedProduct.description || ""}
-                          onChange={(e) => handlePromptChange(selectedProduct._id.toString(), e.target.value)}
-                          placeholder="Enter a description for this image"
-                          className="flex-1 min-h-[200px] text-base"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      Select an image to edit its description
+                <div className="flex items-center gap-3">
+                  {saveStatus === "saving" && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Saving changes...</span>
+                    </div>
+                  )}
+                  {saveStatus === "saved" && (
+                    <div className="flex items-center gap-1.5 text-xs text-green-500">
+                      <Save className="h-3 w-3" />
+                      <span>All changes saved</span>
+                    </div>
+                  )}
+                  {saveStatus === "error" && (
+                    <div className="flex items-center gap-1.5 text-xs text-destructive">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>Failed to save</span>
                     </div>
                   )}
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
 
-          <DialogFooter className="flex min-w-full justify-between items-center border-t pt-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground w-full">
-              {saveStatus === "saving" && (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Saving changes...</span>
-                </>
-              )}
-              {saveStatus === "saved" && (
-                <>
-                  <Save className="h-4 w-4" />
-                  <span>All changes saved</span>
-                </>
-              )}
-              {saveStatus === "error" && (
-                <span className="text-destructive">Connection error - retrying...</span>
+              {selectedProduct ? (
+                <div className="flex-1 flex flex-col p-6 min-h-0 bg-muted/5">
+                  <div className="relative flex-[0.7] mb-4 rounded-lg border bg-background shadow-sm">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const currentIndex = products.findIndex(p => p._id === selectedProduct._id);
+                        const prevIndex = currentIndex > 0 ? currentIndex - 1 : products.length - 1;
+                        setSelectedProduct(products[prevIndex]);
+                      }}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 bg-background/90 hover:bg-background shadow-sm border z-10"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Image
+                      src={selectedProduct.originalImages?.[0]?.url || ""}
+                      alt={selectedProduct.description || ""}
+                      fill
+                      className="object-contain rounded-lg"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const currentIndex = products.findIndex(p => p._id === selectedProduct._id);
+                        const nextIndex = currentIndex < products.length - 1 ? currentIndex + 1 : 0;
+                        setSelectedProduct(products[nextIndex]);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 bg-background/90 hover:bg-background shadow-sm border z-10"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-1 rounded-md bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border shadow-sm">
+                      <span className="text-xs font-medium">
+                        {products.indexOf(selectedProduct) + 1} of {products.length}
+                      </span>
+                    </div>
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyPrompt}
+                        className="h-7 px-2 text-xs bg-background/90 hover:bg-background shadow-sm"
+                      >
+                        {copiedPrompt === selectedProduct._id.toString() ? (
+                          <>
+                            <Check className="w-3 h-3 mr-1" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setShowDeleteAlert(true)}
+                        disabled={deletingProducts.has(selectedProduct._id.toString())}
+                        className="h-7 px-2 text-xs bg-destructive/90 hover:bg-destructive shadow-sm"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                  <Textarea
+                    value={editedPrompts[selectedProduct._id.toString()] || selectedProduct.description || ""}
+                    onChange={(e) => handlePromptChange(selectedProduct._id.toString(), e.target.value)}
+                    placeholder="Enter a description for this image"
+                    className="flex-[0.3] text-sm resize-none bg-background shadow-sm"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground bg-muted/5">
+                  Select an image to edit
+                </div>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleClose}>
-                Upload More Images
-              </Button>
-              <Button 
-                onClick={onContinue} 
-                disabled={isSubmitting || saveStatus === "saving"}
-                className="min-w-[140px]"
-              >
-                Continue to Generate
-              </Button>
+
+            {/* Thumbnail Strip */}
+            <div className="w-[280px] flex flex-col border-l bg-muted/5">
+              <ScrollArea className="flex-1">
+                <div className="grid grid-cols-1 gap-2 p-3">
+                  {products.map(product => {
+                    const isDeleting = deletingProducts.has(product._id.toString());
+                    const isSelected = selectedProduct?._id === product._id;
+                    return (
+                      <Card
+                        key={product._id.toString()}
+                        className={cn(
+                          "cursor-pointer hover:bg-accent transition-colors overflow-hidden border shadow-sm",
+                          isSelected && "ring-2 ring-primary bg-accent",
+                          isDeleting && "opacity-50"
+                        )}
+                        onClick={() => !isDeleting && setSelectedProduct(product)}
+                      >
+                        <div className="relative aspect-video">
+                          <Image
+                            src={product.originalImages?.[0]?.url || ""}
+                            alt={product.description || ""}
+                            fill
+                            className="object-cover"
+                          />
+                          {isDeleting && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+                          <p className="text-xs text-muted-foreground truncate">
+                            {editedPrompts[product._id.toString()] || product.description || "No description"}
+                          </p>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+              <div className="p-3 bg-background border-t">
+                <div className="grid grid-cols-3 gap-2">
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setShowDeleteBatchAlert(true)}
+                    disabled={isLoading}
+                    className="text-xs gap-1.5 col-span-2"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete All
+                  </Button>
+                  <Button 
+                    type="submit"
+                    disabled={isLoading || saveStatus === "saving"}
+                    size="sm"
+                    className="text-xs gap-1.5"
+                  >
+                    {isLoading ? "Deleting..." : "Delete All"}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

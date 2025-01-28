@@ -7,14 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Product } from "@/models/Product";
+import { ProductEditDialog } from "./product-edit-dialog";
 
 interface ImageLibraryProps {
   products: Product[];
   selectedIds: string[];
   onSelect: (productId: string) => void;
+  onUpdate: (updatedProduct: Product) => void;
+  onDelete: (productId: string) => void;
 }
 
-export function ImageLibrary({ products, selectedIds, onSelect }: ImageLibraryProps) {
+export function ImageLibrary({ products, selectedIds, onSelect, onUpdate, onDelete }: ImageLibraryProps) {
   useEffect(() => {
     console.log("ImageLibrary: Received props", {
       productCount: products.length,
@@ -69,7 +72,7 @@ export function ImageLibrary({ products, selectedIds, onSelect }: ImageLibraryPr
           <div>
             <h3 className="font-medium">Image Library</h3>
             <p className="text-sm text-muted-foreground">
-              Select images to generate variations
+              Select images to generate prompts
             </p>
           </div>
           <Badge variant="secondary">
@@ -107,28 +110,39 @@ export function ImageLibrary({ products, selectedIds, onSelect }: ImageLibraryPr
                       ? "border-primary ring-2 ring-primary"
                       : "border-muted hover:border-primary"
                   )}
-                  onClick={() => onSelect(product._id.toString())}
                 >
-                  <Image
-                    src={imageUrl}
-                    alt={product.description || "Product image"}
-                    fill
-                    className="object-cover transition-all group-hover:scale-105"
-                    onError={(e) => {
-                      console.error("ImageLibrary: Image failed to load", {
-                        productId: product._id.toString(),
-                        imageUrl
-                      });
-                    }}
-                  />
-                  <div className="absolute top-2 left-2 z-10">
+                  <div
+                    className="absolute inset-0"
+                    onClick={() => onSelect(product._id.toString())}
+                  >
+                    <Image
+                      src={imageUrl}
+                      alt={product.description || "Product image"}
+                      fill
+                      className="object-cover transition-all group-hover:scale-105"
+                      onError={(e) => {
+                        console.error("ImageLibrary: Image failed to load", {
+                          productId: product._id.toString(),
+                          imageUrl
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between">
                     <Badge variant="outline" className="bg-background/80">
-                      {product.productId || product._id.toString().slice(-6)}
+                      {product.productId}
                     </Badge>
+                    <ProductEditDialog
+                      product={product}
+                      onUpdate={onUpdate}
+                      onDelete={onDelete}
+                    />
                   </div>
                   {product.description && (
                     <div className="absolute bottom-0 left-0 right-0 bg-background/80 p-2 text-xs opacity-0 transition-opacity group-hover:opacity-100">
-                      {product.description}
+                      <div className="line-clamp-3">
+                        {product.description}
+                      </div>
                     </div>
                   )}
                   {selectedIds.includes(product._id.toString()) && (

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/api-handler";
 import { ProductService } from "@/lib/services/product.service";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../auth/[...nextauth]/route";
+import { CounterService } from "@/lib/services/counter.service";
 
 const batchUpdateSchema = z.object({
   batchId: z.string(),
@@ -110,4 +113,27 @@ export const DELETE = withAuth(async (req: NextRequest, { userId }) => {
   await Promise.all(deletePromises);
 
   return new NextResponse(null, { status: 204 });
-}); 
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { userId } = await request.json();
+    
+    // Get next batch sequence number
+    const batchSeq = await CounterService.getNextSequence(userId, "batch");
+    const batchId = `b-${batchSeq}`;
+    
+    return NextResponse.json({ batchId });
+  } catch (error) {
+    console.error("Batch creation error:", error);
+    return NextResponse.json(
+      { error: "Failed to create batch" },
+      { status: 500 }
+    );
+  }
+} 

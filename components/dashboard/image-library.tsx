@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Product } from "@/models/Product";
@@ -75,9 +75,14 @@ export function ImageLibrary({ products, selectedIds, onSelect, onUpdate, onDele
               Select images to generate prompts
             </p>
           </div>
-          <Badge variant="secondary">
-            {selectedIds.length} of {productsWithImages.length} selected
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={cn(badgeVariants({ variant: "secondary" }))}>
+              {products.length} {products.length === 1 ? 'image' : 'images'}
+            </Badge>
+            <Badge className={cn(badgeVariants({ variant: "secondary" }), "ml-auto")}>
+              {selectedIds.length} selected
+            </Badge>
+          </div>
         </div>
 
         <ScrollArea className="h-[600px] pr-4">
@@ -129,7 +134,7 @@ export function ImageLibrary({ products, selectedIds, onSelect, onUpdate, onDele
                     />
                   </div>
                   <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between">
-                    <Badge variant="outline" className="bg-background/80">
+                    <Badge className={cn(badgeVariants({ variant: "outline" }), "bg-background/80")}>
                       {product.productId}
                     </Badge>
                     <ProductEditDialog

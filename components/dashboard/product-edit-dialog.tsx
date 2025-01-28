@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Edit2, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/use-toast";
 import { Product } from "@/models/Product";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 interface ProductEditDialogProps {
   product: Product;
@@ -17,6 +18,7 @@ interface ProductEditDialogProps {
 }
 
 export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDialogProps) {
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,12 +42,19 @@ export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDi
       }
 
       const updatedProduct = await response.json();
-      toast.success("Product updated successfully");
+      toast({
+        title: "Success",
+        description: "Product updated successfully"
+      });
       onUpdate(updatedProduct);
       setOpen(false);
     } catch (error) {
       console.error("Failed to update product:", error);
-      toast.error("Failed to update product");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update product"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -62,12 +71,19 @@ export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDi
         throw new Error("Failed to delete product");
       }
 
-      toast.success("Product deleted successfully");
+      toast({
+        title: "Success",
+        description: "Product deleted successfully"
+      });
       onDelete(product._id.toString());
       setOpen(false);
     } catch (error) {
       console.error("Failed to delete product:", error);
-      toast.error("Failed to delete product");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete product"
+      });
     } finally {
       setIsLoading(false);
       setShowDeleteAlert(false);
@@ -78,9 +94,9 @@ export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDi
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <button className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
             <Edit2 className="h-4 w-4" />
-          </Button>
+          </button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -100,10 +116,14 @@ export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDi
             <div className="flex justify-between">
               <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive" disabled={isLoading}>
-                    <Trash2 className="h-4 w-4 mr-2" />
+                  <button
+                    type="button"
+                    className={cn(buttonVariants({ variant: "destructive" }), "gap-2")}
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="h-4 w-4" />
                     Delete
-                  </Button>
+                  </button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -114,22 +134,28 @@ export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDi
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
               <div className="flex space-x-2">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
+                  className={cn(buttonVariants({ variant: "outline" }))}
                   onClick={() => setOpen(false)}
                   disabled={isLoading}
                 >
                   Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading}>
+                </button>
+                <button 
+                  type="submit" 
+                  className={buttonVariants()}
+                  disabled={isLoading}
+                >
                   {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
+                </button>
               </div>
             </div>
           </form>
@@ -138,3 +164,4 @@ export function ProductEditDialog({ product, onUpdate, onDelete }: ProductEditDi
     </>
   );
 } 
+

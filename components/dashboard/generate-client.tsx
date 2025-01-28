@@ -162,6 +162,18 @@ export function GenerateClient({ initialProducts, pagination }: GenerateClientPr
     }
   };
 
+  const handleUpdate = async (updatedProduct: Product) => {
+    const updatedProducts = products.map(p => 
+      p._id.toString() === updatedProduct._id.toString() ? updatedProduct : p
+    );
+    setProducts(updatedProducts);
+  };
+
+  const handleDelete = async (productId: string) => {
+    setProducts(products.filter(p => p._id.toString() !== productId));
+    setSelectedIds(selectedIds.filter(id => id !== productId));
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-[1fr,250px]">
@@ -169,6 +181,8 @@ export function GenerateClient({ initialProducts, pagination }: GenerateClientPr
           products={products}
           selectedIds={selectedIds}
           onSelect={handleSelect}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
         />
 
         <Card className="p-4">

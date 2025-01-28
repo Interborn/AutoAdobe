@@ -6,6 +6,10 @@ import { ObjectId } from "mongodb";
 import sharp from "sharp";
 import { ProductService } from "@/lib/services/product.service";
 
+// Route segment config
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -54,14 +58,15 @@ export async function POST(request: NextRequest) {
         type: "original" as const,
         mimeType: file.type,
         size: file.size,
-        width: metadata.width,
-        height: metadata.height,
+        width: metadata.width || 0,
+        height: metadata.height || 0,
         createdAt: new Date(),
       }],
       imageConfig: {
         base64Image,
         originalImageUrl: uploadedUrl,
       },
+      productId: "", // This will be overwritten by the service
     });
     
     return NextResponse.json(product);
@@ -74,8 +79,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-}; 

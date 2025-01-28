@@ -1,15 +1,12 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { redirect } from "next/navigation";
 import { getProducts } from "@/lib/services/product.service";
 import { LibraryClient } from "@/components/dashboard/library-client";
 
 export default async function LibraryPage() {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user) {
-    redirect("/auth/signin");
-  }
+  if (!session?.user) return null;
 
   const products = await getProducts(session.user.id);
 

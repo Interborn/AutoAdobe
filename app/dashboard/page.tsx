@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageIcon, Wand2Icon, FileTextIcon, ImagePlusIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ProductService } from "@/lib/services/product.service";
+import { cn } from "@/lib/utils";
 
 interface Activity {
   type: 'prompt' | 'generate' | 'enhance';
@@ -47,13 +48,13 @@ export default async function DashboardPage() {
         </div>
         <div className="flex gap-4">
           <Link href="/dashboard/prompts">
-            <Button>
+            <Button className={cn(buttonVariants({ variant: "default" }))}>
               <ImagePlusIcon className="w-4 h-4 mr-2" />
               Upload Images
             </Button>
           </Link>
           <Link href="/dashboard/generate">
-            <Button variant="outline">
+            <Button className={cn(buttonVariants({ variant: "outline" }))}>
               <Wand2Icon className="w-4 h-4 mr-2" />
               Generate
             </Button>
@@ -126,19 +127,19 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Link href="/dashboard/prompts" className="block">
-              <Button variant="outline" className="w-full justify-start">
+              <Button className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start")}>
                 <ImagePlusIcon className="w-4 h-4 mr-2" />
                 Upload New Images
               </Button>
             </Link>
             <Link href="/dashboard/generate" className="block">
-              <Button variant="outline" className="w-full justify-start">
+              <Button className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start")}>
                 <Wand2Icon className="w-4 h-4 mr-2" />
                 Generate Images
               </Button>
             </Link>
             <Link href="/dashboard/metadata" className="block">
-              <Button variant="outline" className="w-full justify-start">
+              <Button className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start")}>
                 <FileTextIcon className="w-4 h-4 mr-2" />
                 Manage Metadata
               </Button>

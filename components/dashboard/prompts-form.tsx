@@ -9,7 +9,7 @@ import { toast } from "@/components/ui/use-toast";
 import { Product } from "@/models/Product";
 import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 interface PromptsFormProps {
   onProductsCreated: (product: Product) => void;
@@ -268,9 +268,7 @@ export function PromptsForm({
                 <span className="text-sm">Processing files...</span>
               </div>
               <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-6 px-2")}
                 onClick={() => setShowDetails(!showDetails)}
               >
                 {showDetails ? (

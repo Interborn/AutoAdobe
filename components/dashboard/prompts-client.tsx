@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ProductGrid } from "@/components/dashboard/product-grid";
 import { PromptsForm } from "@/components/dashboard/prompts-form";
 import { BatchStatus } from "@/components/dashboard/batch-status";
@@ -155,6 +155,12 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
     }
   }, [batch.id, batch.products.length]);
 
+  const handleProductUpdate = useCallback((updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => 
+      p._id.toString() === updatedProduct._id.toString() ? updatedProduct : p
+    ));
+  }, []);
+
   return (
     <div className="space-y-6">
       <PromptsForm 
@@ -183,13 +189,14 @@ export function PromptsClient({ initialProducts, pagination }: PromptsClientProp
         />
       </div>
 
-      <BatchEditDialog
-        open={showBatchDialog}
-        onOpenChange={setShowBatchDialog}
-        products={batch.products}
-        onContinue={handleContinueToGenerate}
-        onStay={handleStayAndUpload}
-      />
+      {batch.id && (
+        <BatchEditDialog
+          batchId={batch.id}
+          batchName={batch.name}
+          products={batch.products}
+          onUpdate={handleProductUpdate}
+        />
+      )}
     </div>
   );
 } 

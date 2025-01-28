@@ -9,7 +9,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req: request });
+  // Allow access to API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET 
+  });
+  
   const isAuth = !!token;
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/signin") ||
@@ -20,11 +29,13 @@ export async function middleware(request: NextRequest) {
     const tokenExp = token.exp as number;
     const now = Math.floor(Date.now() / 1000);
     
-    // If token is expired or about to expire in the next 10 seconds
-    if (tokenExp - now <= 10) {
-      // Clear the token cookie
+    // If token is expired
+    if (tokenExp - now <= 0) {
+      // Clear all auth-related cookies
       const response = NextResponse.redirect(new URL("/signin", request.url));
       response.cookies.delete("next-auth.session-token");
+      response.cookies.delete("next-auth.callback-url");
+      response.cookies.delete("next-auth.csrf-token");
       return response;
     }
   }
@@ -33,17 +44,25 @@ export async function middleware(request: NextRequest) {
     if (isAuth) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    return null;
+    return NextResponse.next();
   }
 
   if (!isAuth && request.nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/signin", request.url));
+    const signInUrl = new URL("/signin", request.url);
+    signInUrl.searchParams.set("callbackUrl", request.url);
+    return NextResponse.redirect(signInUrl);
   }
 
-  return null;
+  return NextResponse.next();
 }
 
 // See "Matching Paths" below to learn more
 export const config = {
-  matcher: ["/dashboard/:path*", "/signin", "/register", "/uploads/:path*"],
+  matcher: [
+    "/dashboard/:path*", 
+    "/signin", 
+    "/register", 
+    "/uploads/:path*",
+    "/api/auth/:path*"
+  ],
 }; 

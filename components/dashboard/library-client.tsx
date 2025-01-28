@@ -6,12 +6,13 @@ import { Product } from "@/models/Product";
 import { ImageLibrary } from "./image-library";
 import { BatchLibrary } from "./batch-library";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Upload, ImagePlus, Grid, List } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 interface LibraryClientProps {
   initialProducts: Product[];
@@ -189,11 +190,11 @@ export function LibraryClient({ initialProducts, userId }: LibraryClientProps) {
 
       <div className="flex justify-end space-x-4">
         <Button
-          variant="default"
+          className={cn(buttonVariants({ variant: "default" }))}
           onClick={handleGeneratePrompts}
           disabled={selectedIds.length === 0}
         >
-          <ImagePlus className="mr-2 h-4 w-4" />
+          <ImagePlus className="h-4 w-4 mr-2" />
           Generate Prompts ({selectedIds.length})
         </Button>
       </div>
@@ -231,4 +232,5 @@ export function LibraryClient({ initialProducts, userId }: LibraryClientProps) {
     </div>
   );
 } 
+
 

@@ -2,17 +2,17 @@
 
 import { useEffect, useState, useCallback, KeyboardEvent } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Product } from "@/models/Product";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { Loader2, Save, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, Edit2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -25,12 +25,12 @@ interface BatchEditDialogProps {
 }
 
 export function BatchEditDialog({ batchId, batchName, products, onUpdate }: BatchEditDialogProps) {
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(batchName || "");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editedPrompts, setEditedPrompts] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showDeleteBatchAlert, setShowDeleteBatchAlert] = useState(false);
   const [deletingProducts, setDeletingProducts] = useState<Set<string>>(new Set());
@@ -41,32 +41,61 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
     setIsLoading(true);
 
     try {
-      // Update all products in the batch
-      const updatedProducts = await Promise.all(
-        products.map((product) =>
+      // Update batch name for all products if changed
+      if (name) {
+        const results = await Promise.allSettled(products.map(product => 
           fetch(`/api/products/${product._id}`, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              batchName: name,
-            }),
-          }).then(res => res.json())
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ batchName: name })
+          })
+        ));
+
+        // Check if any requests failed
+        const failures = results.filter(r => r.status === 'rejected');
+        if (failures.length > 0) {
+          throw new Error(`Failed to update batch name for ${failures.length} products`);
+        }
+      }
+
+      // Update individual product descriptions
+      const results = await Promise.allSettled(
+        Object.entries(editedPrompts).map(([productId, description]) =>
+          fetch(`/api/products/${productId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description })
+          })
         )
       );
 
-      updatedProducts.forEach(product => {
+      // Check if any requests failed
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        throw new Error(`Failed to update descriptions for ${failures.length} products`);
+      }
+
+      // Update local state with the changes
+      products.forEach(product => {
         if (product) {
           onUpdate(product);
         }
       });
 
-      toast.success("Batch updated successfully");
+      // Close the dialog before showing the success toast
       setOpen(false);
+
+      toast({
+        title: "Success",
+        description: "Changes saved successfully"
+      });
     } catch (error) {
-      console.error("Failed to update batch:", error);
-      toast.error("Failed to update batch");
+      console.error('Save error:', error);
+      toast({
+        variant: "destructive",
+        title: "Error saving changes",
+        description: error instanceof Error ? error.message : "Failed to save changes. Please try again."
+      });
     } finally {
       setIsLoading(false);
     }
@@ -86,68 +115,11 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
     }
   }, [products]);
 
-  // Debounced auto-save
-  useEffect(() => {
-    const saveTimeout = setTimeout(async () => {
-      if (Object.keys(editedPrompts).length === 0 && !name) return;
-      
-      setSaveStatus("saving");
-      try {
-        // Update batch name for all products if changed
-        if (name) {
-          const results = await Promise.allSettled(products.map(product => 
-            fetch(`/api/products/${product._id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ batchName: name })
-            })
-          ));
-
-          // Check if any requests failed
-          const failures = results.filter(r => r.status === 'rejected');
-          if (failures.length > 0) {
-            throw new Error(`Failed to update batch name for ${failures.length} products`);
-          }
-        }
-
-        // Update individual product descriptions
-        const results = await Promise.allSettled(
-          Object.entries(editedPrompts).map(([productId, description]) =>
-            fetch(`/api/products/${productId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ description })
-            })
-          )
-        );
-
-        // Check if any requests failed
-        const failures = results.filter(r => r.status === 'rejected');
-        if (failures.length > 0) {
-          throw new Error(`Failed to update descriptions for ${failures.length} products`);
-        }
-
-        setSaveStatus("saved");
-      } catch (error) {
-        console.error('Save error:', error);
-        setSaveStatus("error");
-        toast({
-          variant: "destructive",
-          title: "Error saving changes",
-          description: error instanceof Error ? error.message : "Your changes will be saved automatically when connection is restored."
-        });
-      }
-    }, 1000);
-
-    return () => clearTimeout(saveTimeout);
-  }, [name, editedPrompts, products]);
-
   const handlePromptChange = (productId: string, prompt: string) => {
     setEditedPrompts(prev => ({
       ...prev,
       [productId]: prompt
     }));
-    setSaveStatus("saving");
   };
 
   const handleDeleteProduct = async () => {
@@ -254,9 +226,9 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <button className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
             <Edit2 className="h-4 w-4" />
-          </Button>
+          </button>
         </DialogTrigger>
         <DialogContent className="max-w-[85vw] h-[85vh] p-0">
           <div className="flex h-full bg-background">
@@ -272,28 +244,16 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
                       placeholder="Enter batch name"
                       className="h-9 w-[240px] text-sm"
                     />
-                    <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                    <div className={cn(badgeVariants({ variant: "secondary" }), "text-xs px-2 py-0.5")}>
                       {products.length} {products.length === 1 ? 'image' : 'images'}
-                    </Badge>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {saveStatus === "saving" && (
+                  {isLoading && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       <span>Saving changes...</span>
-                    </div>
-                  )}
-                  {saveStatus === "saved" && (
-                    <div className="flex items-center gap-1.5 text-xs text-green-500">
-                      <Save className="h-3 w-3" />
-                      <span>All changes saved</span>
-                    </div>
-                  )}
-                  {saveStatus === "error" && (
-                    <div className="flex items-center gap-1.5 text-xs text-destructive">
-                      <AlertTriangle className="h-3 w-3" />
-                      <span>Failed to save</span>
                     </div>
                   )}
                 </div>
@@ -302,47 +262,41 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
               {selectedProduct ? (
                 <div className="flex-1 flex flex-col p-6 min-h-0 bg-muted/5">
                   <div className="relative flex-[0.7] mb-4 rounded-lg border bg-background shadow-sm">
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                    <button
+                      className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 bg-background/90 hover:bg-background shadow-sm border z-10")}
                       onClick={() => {
                         const currentIndex = products.findIndex(p => p._id === selectedProduct._id);
                         const prevIndex = currentIndex > 0 ? currentIndex - 1 : products.length - 1;
                         setSelectedProduct(products[prevIndex]);
                       }}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 bg-background/90 hover:bg-background shadow-sm border z-10"
                     >
                       <ChevronLeft className="h-4 w-4" />
-                    </Button>
+                    </button>
                     <Image
                       src={selectedProduct.originalImages?.[0]?.url || ""}
                       alt={selectedProduct.description || ""}
                       fill
                       className="object-contain rounded-lg"
                     />
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                    <button
+                      className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 bg-background/90 hover:bg-background shadow-sm border z-10")}
                       onClick={() => {
                         const currentIndex = products.findIndex(p => p._id === selectedProduct._id);
                         const nextIndex = currentIndex < products.length - 1 ? currentIndex + 1 : 0;
                         setSelectedProduct(products[nextIndex]);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 bg-background/90 hover:bg-background shadow-sm border z-10"
                     >
                       <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    </button>
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-1 rounded-md bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border shadow-sm">
                       <span className="text-xs font-medium">
                         {products.indexOf(selectedProduct) + 1} of {products.length}
                       </span>
                     </div>
                     <div className="absolute top-2 right-2 flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <button
+                        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 px-2 text-xs bg-background/90 hover:bg-background shadow-sm")}
                         onClick={handleCopyPrompt}
-                        className="h-7 px-2 text-xs bg-background/90 hover:bg-background shadow-sm"
                       >
                         {copiedPrompt === selectedProduct._id.toString() ? (
                           <>
@@ -355,16 +309,14 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
                             Copy
                           </>
                         )}
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
+                      </button>
+                      <button
+                        className={cn(buttonVariants({ variant: "destructive", size: "sm" }), "h-7 px-2 text-xs bg-destructive/90 hover:bg-destructive shadow-sm")}
                         onClick={() => setShowDeleteAlert(true)}
                         disabled={deletingProducts.has(selectedProduct._id.toString())}
-                        className="h-7 px-2 text-xs bg-destructive/90 hover:bg-destructive shadow-sm"
                       >
                         Delete
-                      </Button>
+                      </button>
                     </div>
                   </div>
                   <Textarea
@@ -423,24 +375,31 @@ export function BatchEditDialog({ batchId, batchName, products, onUpdate }: Batc
               </ScrollArea>
               <div className="p-3 bg-background border-t">
                 <div className="grid grid-cols-3 gap-2">
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
+                  <button 
+                    className={cn(buttonVariants({ variant: "destructive", size: "sm" }), "text-xs gap-1.5 col-span-2")}
                     onClick={() => setShowDeleteBatchAlert(true)}
                     disabled={isLoading}
-                    className="text-xs gap-1.5 col-span-2"
                   >
                     <Trash2 className="w-3 h-3" />
                     Delete All
-                  </Button>
-                  <Button 
-                    type="submit"
-                    disabled={isLoading || saveStatus === "saving"}
-                    size="sm"
-                    className="text-xs gap-1.5"
+                  </button>
+                  <button 
+                    className={cn(buttonVariants({ size: "sm" }), "text-xs gap-1.5")}
+                    onClick={handleSubmit}
+                    disabled={isLoading}
                   >
-                    {isLoading ? "Deleting..." : "Delete All"}
-                  </Button>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3 h-3" />
+                        Save
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>

@@ -3,7 +3,7 @@
 import { Product } from "@/models/Product";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -70,7 +70,7 @@ export function BatchLibrary({ products, selectedIds, onSelect, onUpdate, onDele
               View images grouped by upload batch
             </p>
           </div>
-          <Badge variant="secondary">
+          <Badge className={cn(badgeVariants({ variant: "secondary" }))}>
             {selectedIds.length} of {products.length} selected
           </Badge>
         </div>
@@ -94,12 +94,17 @@ export function BatchLibrary({ products, selectedIds, onSelect, onUpdate, onDele
                     <span className="font-medium">
                       {batch.batchName || `Batch ${batch.batchId}`}
                     </span>
-                    <Badge variant="outline">
-                      {batch.products.length} images
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {format(batch.createdAt, "MMM d, yyyy h:mm a")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn(badgeVariants({ variant: "secondary" }))}>
+                        {batch.products.length} {batch.products.length === 1 ? 'image' : 'images'}
+                      </Badge>
+                      <Badge className={cn(badgeVariants({ variant: "secondary" }))}>
+                        {format(new Date(batch.products[0].createdAt), 'MMM d, yyyy')}
+                      </Badge>
+                      <Badge className={cn(badgeVariants({ variant: "secondary" }), "ml-auto")}>
+                        {batch.products.filter(p => selectedIds.includes(p._id.toString())).length} selected
+                      </Badge>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
@@ -130,7 +135,7 @@ export function BatchLibrary({ products, selectedIds, onSelect, onUpdate, onDele
                             />
                           </div>
                           <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between">
-                            <Badge variant="outline" className="bg-background/80">
+                            <Badge className={cn(badgeVariants({ variant: "outline" }), "bg-background/80")}>
                               {product.productId}
                             </Badge>
                             <ProductEditDialog
